@@ -2,7 +2,7 @@
 name: stellar-anchor-skill
 description: |
   Integrate with or build Stellar anchors. Use this skill whenever the task involves moving between fiat and Stellar-issued assets. Triggers include: "fiat on-ramp", "off-ramp", "cash-in / cash-out", "deposit / withdrawal", "anchor integration", "wallet onboarding", "USDC deposit from bank", "Anchor Platform", "java-stellar-anchor-sdk", "anchor test suite", "interactive deposit flow", "KYC against an anchor", "RFQ / firm quote", "cross-border remittance on Stellar". The official `standards` skill points to SEP specifications; this skill is the implementation layer — what to build, in what order, and the non-obvious failure modes. Do NOT use for: reading raw SEP spec text (use stellar/standards); Soroban smart-contract work (use stellar/soroban); generic wallet/frontend UI (use stellar/dapp-frontend).
-license: MIT
+license: Apache-2.0
 compatibility:
   - claude-code
   - agent-skills
