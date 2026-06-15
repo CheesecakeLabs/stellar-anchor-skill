@@ -22,7 +22,7 @@ A community Agent Skill for https://skills.stellar.org/ that teaches AI coding a
 Cover BOTH sides of anchor integration, client side as the front door:
 
 - **Side A — Integrating with anchors** (wallet/app devs; larger audience): SEP-1 discovery, SEP-10 auth, SEP-24 interactive, SEP-6 programmatic, SEP-12 KYC, SEP-38 quotes, SEP-31 cross-border.
-- **Side B — Building an anchor** (fintechs): SDF Anchor Platform (java-stellar-anchor-sdk) deployment, business server callbacks, custody, payment observation.F
+- **Side B — Building an anchor** (fintechs): SDF Anchor Platform (java-stellar-anchor-sdk) deployment, business server callbacks, custody, payment observation.
 
 Router + on-demand reference files keeps context lean despite the broad scope.
 
