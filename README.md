@@ -44,16 +44,10 @@ stellar-anchor-skill/
 
 ## Installation
 
-### Claude Code (Agent Skills)
+### Install this skill using:
 
 ```bash
 npx skills add CheesecakeLabs/stellar-anchor-skill
-```
-
-Or, if your runtime uses the Claude Code plugin marketplace pattern:
-
-```bash
-claude plugins add CheesecakeLabs/stellar-anchor-skill
 ```
 
 ### Manual
