@@ -2,6 +2,8 @@
 
 > Teach your AI coding agent how to integrate with — and build — Stellar anchors (fiat on/off-ramps).
 
+[View com skills.sh](https://www.skills.sh/cheesecakelabs/stellar-anchor-skill)
+
 A community Agent Skill for [skills.stellar.org](https://skills.stellar.org). Drop it into Claude Code (or any Agent-Skills-compatible runtime), and asks like *"build a USDC deposit flow against Circle"* or *"stand up an Anchor Platform for our remittance corridor"* route to grounded, spec-current implementation guidance instead of half-remembered SEP details.
 
 The official [`stellar/standards`](https://github.com/stellar/stellar-dev-skill/blob/main/skills/standards/SKILL.md) skill points to **which** SEP to read. This skill tells you **how** to actually ship it.
