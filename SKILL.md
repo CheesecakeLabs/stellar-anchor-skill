@@ -1,12 +1,14 @@
 ---
-name: stellar-anchor
+name: stellar-anchor-skill
 description: |
-  Integrate with or build Stellar anchors — the fiat on/off-ramps that bridge bank rails and the Stellar network. Use this skill whenever the task involves moving between fiat and Stellar-issued assets, even if the user does not name a SEP number. Triggers include: "fiat on-ramp", "off-ramp", "cash-in / cash-out", "deposit / withdrawal", "anchor integration", "wallet onboarding", "USDC deposit from bank", "MoneyGram", "Circle", "Tempo", "Vibrant", "Anchor Platform", "java-stellar-anchor-sdk", "anchor test suite", "SEP-1", "SEP-6", "SEP-10", "SEP-12", "SEP-24", "SEP-31", "SEP-38", "stellar.toml", "interactive deposit flow", "KYC against an anchor", "RFQ / firm quote", "cross-border remittance on Stellar". The official `standards` skill points to SEP specifications; this skill is the implementation layer — what to build, in what order, and the non-obvious failure modes that cost teams days when discovered in production.
-license: MIT
+  Integrate with or build Stellar anchors. Use this skill whenever the task involves moving between fiat and Stellar-issued assets. Triggers include: "fiat on-ramp", "off-ramp", "cash-in / cash-out", "deposit / withdrawal", "anchor integration", "wallet onboarding", "USDC deposit from bank", "Anchor Platform", "java-stellar-anchor-sdk", "anchor test suite", "interactive deposit flow", "KYC against an anchor", "RFQ / firm quote", "cross-border remittance on Stellar". The official `standards` skill points to SEP specifications; this skill is the implementation layer — what to build, in what order, and the non-obvious failure modes. Do NOT use for: reading raw SEP spec text (use stellar/standards); Soroban smart-contract work (use stellar/soroban); generic wallet/frontend UI (use stellar/dapp-frontend).
+license: Apache-2.0
 compatibility:
   - claude-code
   - agent-skills
 metadata:
+  author: Cheesecake Labs
+  version: '0.1.0'
   category: stellar
   audience:
     - wallet-developers
@@ -59,12 +61,12 @@ Decide what the user is doing, then load only the files you need.
 
 | Task | Load |
 |---|---|
-| Discover an anchor and authenticate a user | [skills/client/discovery-and-auth.md](skills/client/discovery-and-auth.md) |
-| Interactive (hosted UI) deposit or withdraw | [skills/client/sep24-interactive.md](skills/client/sep24-interactive.md) |
-| Programmatic / API-only deposit or withdraw | [skills/client/sep6-programmatic.md](skills/client/sep6-programmatic.md) |
-| Collect or update KYC fields | [skills/client/sep12-kyc.md](skills/client/sep12-kyc.md) |
-| Get an exchange rate or firm quote | [skills/client/sep38-quotes.md](skills/client/sep38-quotes.md) |
-| Cross-border / sending-anchor → receiving-anchor remittance | [skills/client/sep31-cross-border.md](skills/client/sep31-cross-border.md) |
+| Discover an anchor and authenticate a user | [references/client/discovery-and-auth.md](references/client/discovery-and-auth.md) |
+| Interactive (hosted UI) deposit or withdraw | [references/client/sep24-interactive.md](references/client/sep24-interactive.md) |
+| Programmatic / API-only deposit or withdraw | [references/client/sep6-programmatic.md](references/client/sep6-programmatic.md) |
+| Collect or update KYC fields | [references/client/sep12-kyc.md](references/client/sep12-kyc.md) |
+| Get an exchange rate or firm quote | [references/client/sep38-quotes.md](references/client/sep38-quotes.md) |
+| Cross-border / sending-anchor → receiving-anchor remittance | [references/client/sep31-cross-border.md](references/client/sep31-cross-border.md) |
 
 Almost every client flow starts with `discovery-and-auth.md`. Load it first unless the user has already proven SEP-1 + SEP-10 are working.
 
@@ -72,15 +74,15 @@ Almost every client flow starts with `discovery-and-auth.md`. Load it first unle
 
 | Task | Load |
 |---|---|
-| Stand up the SDF Anchor Platform (Docker, config) | [skills/server/anchor-platform-setup.md](skills/server/anchor-platform-setup.md) |
-| Implement the business server callbacks (rates, fees, KYC, custody, payment observation) | [skills/server/business-server.md](skills/server/business-server.md) |
-| Pre-launch checklist (custody, rate limits, compliance, monitoring) | [skills/server/production-checklist.md](skills/server/production-checklist.md) |
+| Stand up the SDF Anchor Platform (Docker, config) | [references/server/anchor-platform-setup.md](references/server/anchor-platform-setup.md) |
+| Implement the business server callbacks (rates, fees, KYC, custody, payment observation) | [references/server/business-server.md](references/server/business-server.md) |
+| Pre-launch checklist (custody, rate limits, compliance, monitoring) | [references/server/production-checklist.md](references/server/production-checklist.md) |
 
 ### Testing — for either side
 
 | Task | Load |
 |---|---|
-| Validate against the SDF test anchor, the Demo Wallet, or `@stellar/anchor-tests` | [skills/testing/testing-and-validation.md](skills/testing/testing-and-validation.md) |
+| Validate against the SDF test anchor, the Demo Wallet, or `@stellar/anchor-tests` | [references/testing/testing-and-validation.md](references/testing/testing-and-validation.md) |
 
 **You should run the testing flow whenever you finish an integration.** The SDF maintains a compliance test suite for exactly this purpose — running it is the difference between "it worked in my dev loop" and "it works in production."
 
@@ -121,9 +123,9 @@ Specs change. Never assert SEP behavior from memory — fetch the current text f
 
 Other anchors of the truth:
 
-- Anchor Platform docs: https://developers.stellar.org/docs/category/anchor-platform
+- Anchor Platform docs: https://developers.stellar.org/docs/platforms/anchor-platform/admin-guide
 - Anchor fundamentals: https://developers.stellar.org/docs/learn/fundamentals/anchors
-- Reference server (`java-stellar-anchor-sdk`): https://github.com/stellar/java-stellar-anchor-sdk
+- Reference server (`java-stellar-anchor-sdk`): https://github.com/stellar/anchor-platform
 - Compliance test suite: https://github.com/stellar/stellar-anchor-tests
 - Test anchor: https://testanchor.stellar.org
 - Demo wallet: https://demo-wallet.stellar.org

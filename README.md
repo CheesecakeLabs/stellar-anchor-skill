@@ -1,10 +1,10 @@
 # Stellar Anchor Skill
 
-> Teach your AI coding agent how to integrate with — and build — Stellar anchors (fiat on/off-ramps), without the failure modes that cost teams days when discovered in production.
+> Teach your AI coding agent how to integrate with — and build — Stellar anchors (fiat on/off-ramps).
 
 A community Agent Skill for [skills.stellar.org](https://skills.stellar.org). Drop it into Claude Code (or any Agent-Skills-compatible runtime), and asks like *"build a USDC deposit flow against MoneyGram"* or *"stand up an Anchor Platform for our remittance corridor"* route to grounded, spec-current implementation guidance instead of half-remembered SEP details.
 
-The official [`stellar/standards`](https://github.com/stellar/stellar-dev-skill) skill points to **which** SEP to read. This skill tells you **how** to actually ship it.
+The official [`stellar/standards`](https://github.com/stellar/stellar-dev-skill/blob/main/skills/standards/SKILL.md) skill points to **which** SEP to read. This skill tells you **how** to actually ship it.
 
 ---
 
@@ -15,7 +15,7 @@ A router (`SKILL.md`) plus on-demand reference files. The router decides what lo
 ```
 stellar-anchor-skill/
 ├── SKILL.md                                    # router + 13 gotchas + file map
-└── skills/
+└── references/
     ├── client/                                 # integrating with someone else's anchor
     │   ├── discovery-and-auth.md               # SEP-1 stellar.toml + SEP-10 web auth
     │   ├── sep24-interactive.md                # Hosted UI deposit/withdraw
@@ -36,7 +36,7 @@ stellar-anchor-skill/
 ## What makes this skill different
 
 - **13 hard-won gotchas, every one falsifiable.** Every claim was verified against the live SEP text and `testanchor.stellar.org` behavior. Things like *"the SEP-10 challenge has sequence number 0 and must never be submitted to the network,"* *"the `home_domain` ≠ `web_auth_domain` whenever auth is on a subdomain,"* *"persisted amounts come back as strings, not numbers,"* *"the TOML `SIGNING_KEY` verifies more than just SEP-10."* All in [SKILL.md](SKILL.md).
-- **An agentic validation loop.** Every reference file points at [testing-and-validation.md](skills/testing/testing-and-validation.md), which prescribes the loop: implement → run `@stellar/anchor-tests` → read the failure → fix the root cause → re-run. Your code isn't done when it compiles; it's done when the SDF compliance suite is green.
+- **An agentic validation loop.** Every reference file points at [testing-and-validation.md](references/testing/testing-and-validation.md), which prescribes the loop: implement → run `@stellar/anchor-tests` → read the failure → fix the root cause → re-run. Your code isn't done when it compiles; it's done when the SDF compliance suite is green.
 - **Both sides of the integration.** Wallet/app developers (most common) and fintechs building the anchor. The router asks which side before loading files.
 - **Self-tested against the empty room.** The skill has been driven by a fresh agent given nothing else — every place that agent stumbled became an edit.
 
@@ -44,16 +44,10 @@ stellar-anchor-skill/
 
 ## Installation
 
-### Claude Code (Agent Skills)
+### Install this skill using:
 
 ```bash
 npx skills add CheesecakeLabs/stellar-anchor-skill
-```
-
-Or, if your runtime uses the Claude Code plugin marketplace pattern:
-
-```bash
-claude plugins add CheesecakeLabs/stellar-anchor-skill
 ```
 
 ### Manual
@@ -199,13 +193,12 @@ Open an issue with the offending file path and the contradiction; PRs welcome di
 
 ## Related skills
 
-- [`stellar/standards`](https://github.com/stellar/stellar-dev-skill) — the official skill that routes to SEP specs (this skill picks up where that one leaves off).
-- [`stellar/soroban`](https://github.com/stellar/stellar-dev-skill) — Soroban smart contracts.
-- [`stellar/dapp-frontend`](https://github.com/stellar/stellar-dev-skill) — wallet/frontend integration patterns.
-- [`Trustless-Work/trustless-work-dev-skill`](https://github.com/Trustless-Work/trustless-work-dev-skill) — the community skill this one is modeled on.
+- [`stellar/standards`](https://github.com/stellar/stellar-dev-skill/blob/main/skills/standards/SKILL.md) — the official skill that routes to SEP specs (this skill picks up where that one leaves off).
+- [`stellar/soroban`](https://github.com/stellar/stellar-dev-skill/blob/main/skills/soroban/SKILL.md) — Soroban smart contracts.
+- [`stellar/dapp-frontend`](https://github.com/stellar/stellar-dev-skill/blob/main/skills/dapp/SKILL.md) — wallet/frontend integration patterns.
 
 ---
 
 ## License
 
-MIT. See [LICENSE](LICENSE).
+Apache-2.0. See [LICENSE](LICENSE).

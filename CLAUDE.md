@@ -31,7 +31,7 @@ Router + on-demand reference files keeps context lean despite the broad scope.
 ```
 stellar-anchor-skill/
 ├── SKILL.md                      # Router: frontmatter, when-to-use, GOTCHAS, quick start, file map
-└── skills/
+└── references/
     ├── client/
     │   ├── discovery-and-auth.md     # SEP-1 stellar.toml parsing + SEP-10 challenge flow
     │   ├── sep24-interactive.md      # Hosted deposit/withdraw, popup handling, status polling
@@ -87,7 +87,7 @@ No existing community skill includes one. The testing reference file should inst
 ## Immediate next steps
 
 1. Scaffold the repo (folders + SKILL.md frontmatter and router skeleton).
-2. Draft `skills/client/sep24-interactive.md` first (highest-traffic flow), grounded in the current SEP-24 spec — fetch it, don't rely on memory.
+2. Draft `references/client/sep24-interactive.md` first (highest-traffic flow), grounded in the current SEP-24 spec — fetch it, don't rely on memory.
 3. Verify each seed gotcha against current specs and testanchor behavior; expand the list while drafting.
 4. Draft `discovery-and-auth.md` (SEP-1 + SEP-10), then the testing file, then remaining client files, then server side.
 
