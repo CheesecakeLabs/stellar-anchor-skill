@@ -2,7 +2,7 @@
 
 > Teach your AI coding agent how to integrate with — and build — Stellar anchors (fiat on/off-ramps).
 
-A community Agent Skill for [skills.stellar.org](https://skills.stellar.org). Drop it into Claude Code (or any Agent-Skills-compatible runtime), and asks like *"build a USDC deposit flow against MoneyGram"* or *"stand up an Anchor Platform for our remittance corridor"* route to grounded, spec-current implementation guidance instead of half-remembered SEP details.
+A community Agent Skill for [skills.stellar.org](https://skills.stellar.org). Drop it into Claude Code (or any Agent-Skills-compatible runtime), and asks like *"build a USDC deposit flow against Circle"* or *"stand up an Anchor Platform for our remittance corridor"* route to grounded, spec-current implementation guidance instead of half-remembered SEP details.
 
 The official [`stellar/standards`](https://github.com/stellar/stellar-dev-skill/blob/main/skills/standards/SKILL.md) skill points to **which** SEP to read. This skill tells you **how** to actually ship it.
 
@@ -69,7 +69,7 @@ The skill's `description:` frontmatter is tuned for natural-language triggers. Y
 
 | What you ask the agent | What loads |
 |---|---|
-| *"Build a USDC deposit from a bank against MoneyGram"* | `discovery-and-auth.md` + `sep24-interactive.md` |
+| *"Build a USDC deposit from a bank against Vibrant"* | `discovery-and-auth.md` + `sep24-interactive.md` |
 | *"Connect our wallet to Vibrant for cash-out"* | `discovery-and-auth.md` + `sep24-interactive.md` |
 | *"Set up programmatic deposits against an anchor for our backend"* | `discovery-and-auth.md` + `sep6-programmatic.md` + `sep12-kyc.md` |
 | *"Show me the firm-quote / RFQ pattern for non-1:1 conversions"* | `sep38-quotes.md` |
@@ -89,7 +89,7 @@ The skill itself reads the request, picks the right files, and only loads those.
 ```
 You: I'm building a Stellar wallet. We want to let users deposit USDC against
      testanchor.stellar.org so we can test against a real anchor before
-     wiring up MoneyGram for production. TypeScript, using @stellar/stellar-sdk.
+     wiring up Circle for production. TypeScript, using @stellar/stellar-sdk.
 
 Agent: [loads SKILL.md → reads the 13 gotchas → loads discovery-and-auth.md
         → loads sep24-interactive.md → writes the implementation]
