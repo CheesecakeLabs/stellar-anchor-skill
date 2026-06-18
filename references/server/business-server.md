@@ -67,17 +67,19 @@ You typically host SEP-12 directly on your business server (the platform proxies
 
 The platform also fires you a `pending_customer_info_update` event when the SEP server detects a transaction needs more KYC — that's a hook to nudge the customer (push notification, email) without polling.
 
-### Custody callbacks (drives deposits and withdrawals)
+### Custody actions (drives deposits and withdrawals)
 
-The platform owns the transaction state machine; you own the actual movement of money.
+The platform owns the transaction state machine; you own the actual movement of money. These are **outbound calls you make on the Platform API** (you → platform) — *not* inbound callbacks (they're grouped here because they're custody touchpoints; mechanically they belong with Surface 2). On current Anchor Platform (3.0+) they are JSON-RPC methods; older releases exposed them as `PATCH`/action endpoints. Each one reports a money-movement event so the platform can advance the state machine.
 
-| Call | When | What you do |
+| Action you invoke (JSON-RPC) | When | What you do |
 |---|---|---|
-| `POST /transactions/{id}/onchain-funds-sent` event-trigger or notify | On a deposit: the platform observed the user's on-chain payment land; or on a withdrawal: the user's Stellar payment hit your `withdraw_anchor_account`. | Match to the transaction by memo. Begin off-chain payout (withdrawal) or move the user's deposited Stellar asset to your treasury (deposit). |
-| `POST /transactions/{id}/offchain-funds-sent` | You're telling the platform: I just executed the off-chain payout, here are the rails details. | Mark the platform's record so the state machine advances to `completed`. |
-| `POST /transactions/{id}/refund` | A flow failed and you refunded. | Submit the on-chain refund payment and notify the platform. |
+| `notify_onchain_funds_received` | **Withdrawal:** the user's Stellar payment hit your distribution / `destination_account`. | Match to the transaction by memo. The platform moves it to `pending_anchor`; you then begin the off-chain payout. |
+| `notify_onchain_funds_sent` | **Deposit:** your custody layer sent the Stellar asset to the user and Horizon confirmed. | Report the Stellar txid; the platform advances the transaction to `completed`. |
+| `notify_offchain_funds_received` | **Deposit:** your banking integration confirmed the user's fiat arrived. | The platform moves it to `pending_anchor`; you then pay out on-chain. |
+| `notify_offchain_funds_sent` | **Withdrawal:** you executed the off-chain payout (here are the rails details). | The platform advances the transaction to `completed`. |
+| `notify_refund_sent` (or `do_stellar_refund`) | A flow failed and you refunded. | Submit the on-chain refund payment and report it. |
 
-In practice you don't implement these as inbound endpoints; you make these calls *outbound* on the Platform API (see Surface 2). The exact mechanism — webhook vs Kafka event vs Platform API call — depends on the version and your `events.queue` config. The reference business server has working examples for the current release.
+The exact mechanism — JSON-RPC method (current) vs the older `PATCH`/action endpoints — depends on the version and your `events.queue` config. Cross-check the [JSON-RPC methods reference](https://developers.stellar.org/docs/platforms/anchor-platform/api-reference/platform/rpc/methods); the reference business server has working examples for the current release.
 
 ### Callback authentication
 
@@ -87,13 +89,13 @@ The platform signs callback requests it sends to you with `SECRET_CALLBACK_API_A
 
 ## Surface 2 — The Platform API (you → platform)
 
-Internal HTTP API the platform exposes on port 8085 (default). You authenticate with `SECRET_PLATFORM_API_AUTH_SECRET` (typically as a `Bearer` JWT). Conceptual operations:
+Internal HTTP API the platform exposes on port 8085 (default). You authenticate with `SECRET_PLATFORM_API_AUTH_SECRET` (typically as a `Bearer` JWT). On current Anchor Platform (3.0+) the state transitions below are JSON-RPC methods (`notify_*`, `do_*`, `request_*` — see the [JSON-RPC reference](https://developers.stellar.org/docs/platforms/anchor-platform/api-reference/platform/rpc/methods)); older releases used the `PATCH`/action endpoints shown here. The concepts map 1:1, but confirm the exact request shape against your installed version. Conceptual operations:
 
 | Verb | Path | Use |
 |---|---|---|
 | `GET` | `/transactions` | List transactions matching filters. Backfill, reconciliation, admin tools. |
 | `GET` | `/transactions/{id}` | Inspect one transaction. |
-| `PATCH` | `/transactions/{id}` | **Move a transaction forward.** Set status, add `external_transaction_id`, populate `withdraw_memo`/`stellar_account_id`, attach fee details. This is how you progress the state machine. |
+| `PATCH` | `/transactions/{id}` | **Move a transaction forward.** Set status, add `external_transaction_id`, populate the withdrawal destination (`destination_account`/`memo`/`memo_type`), attach fee details. This is how you progress the state machine. |
 | `POST` | `/transactions/{id}/actions/...` | Verb-named actions (refund, dispatch, mark notified). Names vary by version. |
 
 The most-used call is `PATCH /transactions/{id}`. Two examples:
@@ -106,7 +108,7 @@ When the platform fires `transaction_created` for a SEP-24 withdrawal, you assig
 PATCH /transactions/abc123
 {
   "status": "pending_user_transfer_start",
-  "withdraw_anchor_account": "GCIBUCGPOHWMMMFPFKDKE2...",
+  "destination_account":     "GCIBUCGPOHWMMMFPFKDKE2...",
   "memo":                    "1234567890",
   "memo_type":               "id",
   "amount_in":               "50.0000000",
@@ -122,7 +124,7 @@ Until you PATCH, the wallet sees `status: incomplete` and can't move forward.
 ```json
 PATCH /transactions/abc123
 {
-  "status":                 "pending_stellar",
+  "status":                 "pending_anchor",
   "amount_in":              "100.00",
   "external_transaction_id":"BANK-REF-998877"
 }
@@ -139,7 +141,7 @@ The platform publishes a stream of state-change events. Subscribe and react. The
 | Event | Triggered by | Typical handler |
 |---|---|---|
 | `transaction_created` | A wallet POSTed `/transactions/deposit/interactive` or `/withdraw/interactive` (SEP-24), `/deposit` or `/withdraw` (SEP-6), or `/transactions` (SEP-31). | Allocate the deposit/withdraw rail (custody address, memo), compute fees, PATCH back. |
-| `transaction_status_changed` | Any status transition. | Update your internal mirror; for `pending_user_transfer_start` (withdrawal), the user has now sent Stellar → start the off-chain payout pipeline. |
+| `transaction_status_changed` | Any status transition. | Update your internal mirror. Note: `pending_user_transfer_start` (withdrawal) means the anchor is *waiting* for the user to send Stellar — do **not** start the off-chain payout here. Start it only once on-chain funds are confirmed received (`notify_onchain_funds_received` → `pending_anchor`), or you risk paying out before the user's payment lands. |
 | `transaction_error` | Catch-all failure. | Alert on-call; the transaction is stuck and needs human eyes. |
 | `customer_status_changed` (SEP-12) | KYC status flipped. | Notify the customer; reattempt their pending transactions. |
 
@@ -195,7 +197,7 @@ See [production-checklist.md](production-checklist.md) for the full custody sect
 ## Business-server footgun checklist
 
 - **Idempotency keys everywhere.** Every callback and every event handler can fire twice. Key by `transaction_id` + step, not by event id alone — the platform may emit two `transaction_status_changed` for the same status during retries.
-- **PATCH status transitions must be valid.** The platform's state machine rejects backward transitions (you can't go `pending_stellar` → `pending_anchor`). Read the admin guide's status diagram; design your business logic to walk it forward only.
+- **Status transitions must be valid.** The platform's state machine rejects backward transitions (e.g. you can't go `pending_anchor` → `pending_user_transfer_start`). Read the admin guide's status diagram; design your business logic to walk it forward only.
 - **A firm rate is a commitment.** Don't return a firm quote you can't hedge or hold inventory for. Returning `expires_at: 30 minutes` and then quoting at spot 25 minutes later means you absorb the slippage.
 - **Off-chain payouts must be exactly-once.** Two payouts on the same SEP-31 transaction = lawsuit. Use a database-backed payout ledger your banking integration checks before submitting.
 - **`context` discrimination on rate callbacks.** SEP-6 / SEP-24 / SEP-31 deserve different fees. The `context` field on the rate callback exists for this.

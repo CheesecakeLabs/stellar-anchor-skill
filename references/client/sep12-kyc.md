@@ -189,11 +189,30 @@ After DELETE, subsequent `GET /customer` returns 404 until a new `PUT /customer`
 ## A minimal end-to-end KYC loop (TypeScript-ish)
 
 ```ts
-async function ensureKycAccepted(kycServer: string, jwt: string, type: string, getMissing: (fields: any) => Promise<Record<string,any>>) {
-  for (;;) {
-    const status = await fetch(`${kycServer}/customer?type=${type}`, {
+const sleep = (ms: number) => new Promise(res => setTimeout(res, ms));
+
+// `reauth` re-runs SEP-10 and returns a fresh JWT — see discovery-and-auth.md
+// ("JWT lifetime and mid-flow re-auth"). Transparent: never bounces the user.
+async function ensureKycAccepted(
+  kycServer: string,
+  jwt: string,
+  type: string,
+  getMissing: (fields: any) => Promise<Record<string,any>>,
+  reauth: () => Promise<string>,
+) {
+  const MAX_ATTEMPTS = 20;            // bound the loop: a persistent NEEDS_INFO must not spin forever
+  for (let attempt = 0; attempt < MAX_ATTEMPTS; attempt++) {
+    let r = await fetch(`${kycServer}/customer?type=${type}`, {
       headers: { Authorization: `Bearer ${jwt}` },
-    }).then(r => r.json());
+    });
+    if (r.status === 401) {           // SEP-10 JWT expired mid-flow — re-auth and retry once
+      jwt = await reauth();
+      r = await fetch(`${kycServer}/customer?type=${type}`, {
+        headers: { Authorization: `Bearer ${jwt}` },
+      });
+    }
+    if (!r.ok) throw new Error(`GET /customer failed (${r.status}): ${await r.text()}`);
+    const status = await r.json();
 
     if (status.status === "ACCEPTED")  return status.id;
     if (status.status === "REJECTED")  throw new Error(`KYC rejected: ${status.message}`);
@@ -202,7 +221,8 @@ async function ensureKycAccepted(kycServer: string, jwt: string, type: string, g
     // NEEDS_INFO — collect, then PUT
     const missing = await getMissing(status.fields);
 
-    const hasBinary = Object.values(status.fields).some((f: any) => f.type === "binary" && missing[/* name */ ""] != null);
+    // Detect binaries from the actual collected values, not the field descriptors.
+    const hasBinary = Object.values(missing).some(v => v instanceof Blob);
     let body: BodyInit;
     let headers: Record<string,string> = { Authorization: `Bearer ${jwt}` };
 
@@ -217,8 +237,15 @@ async function ensureKycAccepted(kycServer: string, jwt: string, type: string, g
       body = JSON.stringify({ type, ...missing });
     }
 
-    await fetch(`${kycServer}/customer`, { method: "PUT", headers, body });
+    let put = await fetch(`${kycServer}/customer`, { method: "PUT", headers, body });
+    if (put.status === 401) {         // token may have lapsed between GET and PUT
+      jwt = await reauth();
+      headers.Authorization = `Bearer ${jwt}`;
+      put = await fetch(`${kycServer}/customer`, { method: "PUT", headers, body });
+    }
+    if (!put.ok) throw new Error(`PUT /customer failed (${put.status}): ${await put.text()}`);
   }
+  throw new Error(`KYC did not reach ACCEPTED within ${MAX_ATTEMPTS} attempts`);
 }
 ```
 

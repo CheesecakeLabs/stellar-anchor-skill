@@ -95,12 +95,13 @@ Two things to internalize:
 Unlike SEP-24, where the anchor's hosted UI prompts for KYC, in SEP-6 your code is responsible for collecting and submitting SEP-9 fields before the user sees any "where do I send the money" instructions.
 
 ```
-PUT  {KYC_SERVER}/customer       → returns { id: "<customer_id>", status: "ACCEPTED|NEEDS_INFO|PROCESSING|REJECTED" }
+PUT  {KYC_SERVER}/customer       → returns { id: "<customer_id>" }              (id only)
+GET  {KYC_SERVER}/customer       → returns { id, status: "ACCEPTED|NEEDS_INFO|PROCESSING|REJECTED", fields, provided_fields }
 ```
 
-Save the `id`. Pass it as `customer_id` on `/deposit` and `/withdraw`. See [sep12-kyc.md](sep12-kyc.md) for the full SEP-12 flow.
+`PUT /customer` returns **only** `{ id }` — it does not carry `status` or `fields`. Read the KYC status and the list of outstanding fields from `GET /customer` after each PUT (this matches [sep12-kyc.md](sep12-kyc.md)). Save the `id` and pass it as `customer_id` on `/deposit` and `/withdraw`. See [sep12-kyc.md](sep12-kyc.md) for the full SEP-12 flow.
 
-If the customer status comes back `NEEDS_INFO`, the anchor returns `fields` listing what's missing — submit, re-`PUT`, repeat until `ACCEPTED`.
+If `GET /customer` returns status `NEEDS_INFO`, the anchor returns `fields` listing what's missing — submit via PUT, re-`GET` to re-check status, repeat until `ACCEPTED`.
 
 ---
 
@@ -111,7 +112,7 @@ GET {TRANSFER_SERVER}/deposit?asset_code=USDC
                               &asset_issuer=GA5Z...
                               &account=G...                       # optional; defaults to JWT sub
                               &amount=100                          # optional
-                              &funding_method=SEPA                 # required if `fields.type` exists in /info
+                              &funding_method=SEPA                 # send as `funding_method`; required if the anchor advertises this field (often keyed `type`) in /info `fields`
                               &customer_id=<from SEP-12>
                               &quote_id=<from SEP-38>              # for /deposit-exchange only
                               &claimable_balance_supported=true    # see SEP-24 branch
@@ -119,7 +120,9 @@ GET {TRANSFER_SERVER}/deposit?asset_code=USDC
 Authorization: Bearer <JWT>
 ```
 
-`funding_method` replaces the deprecated `type` parameter and indicates how the user will fund the deposit (SEPA, SWIFT, cash, mobile money). Anchors that still expect `type` will tell you so in `fields`.
+`funding_method` indicates how the user will fund the deposit (SEPA, SWIFT, cash, mobile money) and replaces the deprecated `type` request parameter.
+
+**Watch the key mapping — it differs between `/info` and the request.** Many anchors still *advertise* this field keyed `type` inside the `fields` object on `/info` (as in the example above) for legacy compatibility, but you *send* it as `funding_method` on the `/deposit` (or `/withdraw`) request. The one exception: if an anchor's `/info` field is literally named `type`, a legacy anchor may also accept the value under the `type` request parameter — but prefer `funding_method` and only fall back to `type` if the anchor explicitly requires it.
 
 ### Response (the deposit instructions)
 
@@ -234,15 +237,39 @@ Trying to drive a non-equivalent flow through plain `/deposit` ends with 400s. U
 
 ```ts
 // preconditions: jwt = SEP-10 token, transferServer = TRANSFER_SERVER, kycServer = KYC_SERVER
-const info = await fetch(`${transferServer}/info`).then(r => r.json());
+let jwt = await runSep10();  // see discovery-and-auth.md
+
+// Thin authenticated fetch wrapper: re-runs SEP-10 on 401 and retries, throws on
+// other non-2xx with the response body, and only then parses JSON.
+// Same transparent re-auth path as discovery-and-auth.md / gotcha #11.
+async function authFetch<T>(url: string, init: RequestInit = {}): Promise<T> {
+  const send = (token: string) =>
+    fetch(url, { ...init, headers: { ...init.headers, Authorization: `Bearer ${token}` } });
+  let res = await send(jwt);
+  if (res.status === 401) {
+    jwt = await runSep10();          // transparent re-auth, no user prompt
+    res = await send(jwt);
+  }
+  if (!res.ok) throw new Error(`${res.status} ${url}: ${await res.text()}`);
+  return res.json();
+}
+
+// /info is unauthenticated, but still check r.ok before parsing.
+const info = await fetch(`${transferServer}/info`).then(r => {
+  if (!r.ok) throw new Error(`${r.status} /info: ${r.statusText}`);
+  return r.json();
+});
 const fields = info.deposit?.USDC?.fields ?? {};
 
-// 1. KYC — re-PUT until ACCEPTED
-let customer = await sep12PutCustomer(kycServer, jwt, KYC_DATA);
+// 1. KYC — PUT, then GET status; repeat until ACCEPTED.
+//    PUT /customer returns only { id }; status/fields come from GET /customer.
+let { id: customerId } = await sep12PutCustomer(kycServer, jwt, KYC_DATA);
+let customer = await sep12GetCustomer(kycServer, jwt, KYC_TYPE);  // → { status, fields, ... }
 while (customer.status !== "ACCEPTED") {
   if (customer.status === "REJECTED") throw new Error("KYC rejected");
   await collectMissingFields(customer.fields);
-  customer = await sep12PutCustomer(kycServer, jwt, KYC_DATA);
+  ({ id: customerId } = await sep12PutCustomer(kycServer, jwt, KYC_DATA));
+  customer = await sep12GetCustomer(kycServer, jwt, KYC_TYPE);
 }
 
 // 2. /deposit
@@ -251,30 +278,26 @@ const q = new URLSearchParams({
   asset_issuer: USDC_ISSUER,
   amount: "100",
   funding_method: "SEPA",
-  customer_id: customer.id,
+  customer_id: customerId,
   claimable_balance_supported: String(info.features?.claimable_balances === true),
 });
-const deposit = await fetch(`${transferServer}/deposit?${q}`, {
-  headers: { Authorization: `Bearer ${jwt}` },
-}).then(r => r.json());
+const deposit = await authFetch<any>(`${transferServer}/deposit?${q}`);
 
 displayInstructions(deposit.how, deposit.extra_info);  // show user the bank details
 
 // 3. Poll
 const txId = deposit.id;
 for (;;) {
-  const { transaction: tx } = await fetch(`${transferServer}/transaction?id=${txId}`, {
-    headers: { Authorization: `Bearer ${jwt}` },
-  }).then(r => r.json());
+  const { transaction: tx } = await authFetch<any>(`${transferServer}/transaction?id=${txId}`);
 
   switch (tx.status) {
     case "pending_customer_info_update":
       await sep12PutCustomer(kycServer, jwt, missing(tx.required_customer_info_updates));
       break;
     case "pending_transaction_info_update":
-      await fetch(`${transferServer}/transactions/${txId}`, {
+      await authFetch(`${transferServer}/transactions/${txId}`, {
         method: "PATCH",
-        headers: { Authorization: `Bearer ${jwt}`, "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ fields: { transaction: collectInfo(tx.required_info_updates) } }),
       });
       break;
@@ -295,7 +318,8 @@ for (;;) {
 - **`fields` from `/info` is not optional.** Submitting `/deposit` without all required fields returns 400 (best case) or stalls the transaction at `pending_customer_info_update` (worse case, eats your customer's time).
 - **`pending_transaction_info_update` requires PATCH, not a re-POST.** Re-POSTing creates a new transaction id and abandons the old one. Always continue by id.
 - **Don't pass PII via `dest` / `dest_extra` if you can avoid it.** The spec explicitly warns these leak into anchor logs; route through SEP-12.
-- **`funding_method` ≠ `type`.** `type` is deprecated; current anchors expect `funding_method`. Legacy anchors may still accept `type`; check the `/info` fields list.
+- **`funding_method` ≠ `type` — and the `/info` key may not match the request key.** Send the field as `funding_method` on the request; the deprecated `type` request parameter is a legacy fallback. Anchors commonly still advertise this field keyed `type` in the `/info` `fields` object, so don't assume the `/info` key is the wire key — map it to `funding_method` unless the anchor explicitly requires `type`.
+- **Check `r.ok` and handle 401 on every authenticated call.** Wrap `/deposit`, `/withdraw`, `/transaction`, and `PATCH /transactions/{id}` in a fetch helper that re-runs SEP-10 on a 401 and retries, throws on other non-2xx with the response body, and only then parses JSON. A long SEP-6 poll loop will outlive the JWT at some anchors. See gotcha #11 and [discovery-and-auth.md](discovery-and-auth.md#jwt-lifetime-and-mid-flow-re-auth) for the re-auth path.
 - **`on_change_callback`** is a wallet-supplied URL the anchor will POST to whenever status changes. The same signature scheme as SEP-24's URL callbacks applies; verify with `SIGNING_KEY` from the TOML. Polling and callbacks are not mutually exclusive — use both.
 - **Use `/deposit-exchange` and `/withdraw-exchange` for non-1:1 conversions** with a SEP-38 `quote_id`. Plain `/deposit` will reject mismatched asset pairs.
 - **Validate against `testanchor.stellar.org` first** — see [testing-and-validation.md](../testing/testing-and-validation.md). It implements every SEP-6 endpoint including the `pending_customer_info_update` branch.
