@@ -124,7 +124,7 @@ Store the `id` — it is the only handle you have to this transaction until it s
 
 ### Error responses
 
-- `403 { "type": "authentication_required" }` — JWT missing, expired, or rejected. Re-run SEP-10 and retry; do not surface this to the user.
+- `401` (or `403`) `{ "type": "authentication_required" }` — JWT missing, expired, or rejected. Anchors are inconsistent about which code they use, so treat **either 401 or 403 carrying `authentication_required`** as the same signal: re-run SEP-10 and retry transparently; do not surface this to the user. (This matches gotcha #11 — catch the re-auth trigger on the status code, not on assuming a single one.)
 - Any other non-200: `{ "error": "human-readable message" }`. Most anchors return the asset / amount / KYC reason here in plain English — surface it.
 
 ---
@@ -239,7 +239,7 @@ If the anchor's asset has `AUTH_REQUIRED`, the anchor must call `AllowTrust` (or
 The `ChangeTrust` itself, in full:
 
 ```ts
-import { Asset, Horizon, Networks, Operation, TransactionBuilder, BASE_FEE } from "@stellar/stellar-sdk";
+import { Asset, Horizon, Keypair, Operation, TransactionBuilder, BASE_FEE } from "@stellar/stellar-sdk";
 
 // Horizon URLs are NOT advertised in stellar.toml — pin them per network:
 //   testnet: https://horizon-testnet.stellar.org
@@ -355,7 +355,9 @@ See [sep38-quotes.md](sep38-quotes.md) for the quote endpoints themselves.
 ## A minimal end-to-end deposit (TypeScript-ish)
 
 ```ts
-// preconditions: jwt = SEP-10 token, transferServer = TRANSFER_SERVER_SEP0024
+// preconditions: jwt = SEP-10 token, transferServer = TRANSFER_SERVER_SEP0024,
+//   horizon = new Horizon.Server(...), userKeypair = Keypair for the user,
+//   networkPassphrase = stellar.toml NETWORK_PASSPHRASE  (see addTrustline above)
 const info = await fetch(`${transferServer}/info`).then(r => r.json());
 if (!info.deposit?.USDC?.enabled) throw new Error("USDC deposit disabled");
 
@@ -390,7 +392,7 @@ const poll = setInterval(async () => {
   ).then(r => r.json());
 
   if (tx.status === "pending_trust") {
-    await addTrustline(USDC_CODE, USDC_ISSUER);
+    await addTrustline(horizon, userKeypair, new Asset("USDC", USDC_ISSUER), networkPassphrase);
   } else if (tx.status === "completed" || tx.status === "refunded" || tx.status === "error") {
     clearInterval(poll);
     handleTerminal(tx);

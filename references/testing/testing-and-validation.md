@@ -231,7 +231,8 @@ You are done when step 5 prints `Tests: N passed, N total` and step 7 lands a re
 | `stellar.toml` test fails on a 200 response | Missing `Access-Control-Allow-Origin: *` or content-type mismatch |
 | SEP-10 "challenge has invalid sequence number" | Your *test setup* is wrong — re-check `accountSecret` is funded on testnet |
 | SEP-10 "web_auth_domain mismatch" | Your server is generating challenges with the wrong `WEB_AUTH_ENDPOINT` host |
-| SEP-24 "transaction missing required field `amount_in_asset`" | You're returning the deprecated `amount_in_asset` instead of `fee_details`, or you're returning non-equivalent assets without the SEP-38 identifier |
+| SEP-24 "transaction missing required field `amount_in_asset`/`amount_out_asset`" | These are REQUIRED for non-equivalent (SEP-38 quote-based) flows and must be a SEP-38 asset identifier (e.g. `iso4217:USD`, `stellar:USDC:G...`). A missing one means you returned bare/non-equivalent assets without the SEP-38 id |
+| SEP-24 transaction rejected for using `amount_fee` | `amount_fee` is deprecated in favor of `fee_details` — return the `fee_details` object instead |
 | SEP-24 "withdrawal status never reached `pending_user_transfer_start`" | Your custody/observer pipeline isn't generating the withdraw_anchor_account + memo response in time, or your KYC step is stuck |
 | SEP-38 quote "expired before use" | Your `expires_at` is shorter than the test timeout — extend it or fix the clock |
 | Any SEP-12 test | The `customers` block in `--sep-config` is incomplete for the fields your anchor demands; check your `GET /customer` `fields` response and align them |

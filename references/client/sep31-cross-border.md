@@ -196,15 +196,17 @@ pending_external                     (off-chain payout in flight to the recipien
 completed                            (terminal)
 ```
 
+These are the **SEP-31-specific** status strings (per SEP-0031: `pending_sender`, `pending_stellar`, `pending_receiver`, `pending_external`, plus the branches below). They are deliberately different from the generic vocabulary in SKILL.md gotcha #8 (`incomplete → pending_user_transfer_start → pending_anchor/pending_external → completed`), which describes the SEP-6/24 anchor path — don't reuse those names here.
+
 Branches:
 
 | Status | Meaning | Your action |
 |---|---|---|
 | `pending_customer_info_update` | KYC needs updating (often: sender exceeded a tier limit, anchor wants more docs). The transaction object lists which fields. | Re-PUT `/customer` (SEP-12) for the indicated side; transaction resumes. |
-| `pending_transaction_info_update` | **Deprecated approach** — the spec recommends KYC updates over per-transaction patches. If you see it, the response includes `required_info_updates`; PATCH `/transactions/{id}` with the fields. New anchors should not move into this state. |
-| `refunded` | Receiving anchor refunded; check `refunds` for amount and payment IDs. |
-| `expired` | Quote expired before your Stellar payment confirmed, or per anchor policy. Funds were not moved (or were refunded). |
-| `error` | Catch-all; surface `message`. |
+| `pending_transaction_info_update` | **Deprecated approach** — the spec recommends KYC updates over per-transaction patches. If you see it, the response includes `required_info_updates`; PATCH `/transactions/{id}` with the fields. New anchors should not move into this state. | PATCH `/transactions/{id}` with the fields named in `required_info_updates`; transaction resumes. |
+| `refunded` | Receiving anchor refunded; check `refunds` for amount and payment IDs. | Reconcile `refunds.payments[].id` against Horizon; close out the transaction. |
+| `expired` | Quote expired before your Stellar payment confirmed, or per anchor policy. Funds were not moved (or were refunded). | Re-quote (SEP-38) and start a new transaction; confirm any refund landed. |
+| `error` | Catch-all; surface `message`. | Surface `message` to the operator and stop polling. |
 
 ### PUT /transactions/:id/callback — push instead of poll
 
@@ -261,6 +263,7 @@ if (ass.quotes_required) {
 }
 
 // 4. /transactions
+// POST /transactions returns the tx fields at top level (not wrapped)
 const tx = await fetch(`${dps}/transactions`, {
   method: "POST",
   headers: { Authorization: `Bearer ${jwt}`, "Content-Type": "application/json" },
@@ -282,12 +285,19 @@ await submitStellarPayment({
 
 // 6. Poll
 for (;;) {
+  // GET /transactions/{id} wraps the tx in { transaction: {...} }
   const { transaction: t } = await fetch(`${dps}/transactions/${tx.id}`, {
     headers: { Authorization: `Bearer ${jwt}` },
   }).then(r => r.json());
   if (t.status === "completed" || t.status === "refunded" || t.status === "error") return t;
   if (t.status === "pending_customer_info_update") {
-    await reKyc(t.required_customer_info_updates);
+    // pending_customer_info_update surfaces required fields via the SEP-12 customer
+    // record, NOT on the transaction — see references/client/sep12-kyc.md.
+    await reKyc(senderId, receiverId);
+  }
+  if (t.status === "pending_transaction_info_update") {
+    // pending_transaction_info_update surfaces required_info_updates ON the transaction.
+    await patchTransaction(tx.id, t.required_info_updates);
   }
   await sleep(5000);
 }

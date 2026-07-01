@@ -26,7 +26,7 @@ Anchors are the on/off-ramps of the Stellar network: regulated entities (fintech
 
 This skill covers **both sides** of anchor work:
 
-- **Client side** — you are building a wallet or app that needs to deposit, withdraw, or transfer through someone else's anchor (MoneyGram, Vibrant, Circle, etc.). Most users land here.
+- **Client side** — you are building a wallet or app that needs to deposit, withdraw, or transfer through someone else's anchor (Vibrant, Circle, etc.). Most users land here.
 - **Server side** — you are the fintech building the anchor itself, usually on top of the SDF's Anchor Platform.
 
 If you are not sure which side the task is, ask the user before loading reference files. Loading the wrong half wastes context.

@@ -137,7 +137,7 @@ Response:
 
 **Pass `context`** so the anchor knows which SEP-6 / SEP-24 / SEP-31 fee tier and corridor applies. Same pair can quote differently across flows.
 
-`total_price` × `buy_amount` = `sell_amount` (including fees). `price` alone is the pre-fee rate. Display whichever your UX uses; many wallets show `total_price` to avoid surprise fees at confirmation.
+`total_price` × `buy_amount` = `sell_amount` (including fees). `price` alone is the pre-fee rate. Display whichever your UX uses; many wallets show `total_price` to avoid surprise fees at confirmation. Note that `price`, `total_price`, `sell_amount`, `buy_amount`, and every fee amount come back as STRINGS with 7-decimal precision — do all this rate math with a decimal library (never `parseFloat`) and compare/round as decimals, per the skill's amount-precision gotcha (#6).
 
 ---
 
@@ -274,6 +274,7 @@ If `start` comes back with an error mentioning the quote, catch it, re-`POST /qu
 - **`context` is required on `/price` and `POST /quote`.** Same pair quotes differently across SEPs.
 - **Asset identifiers always use the `<scheme>:<id>` form** — never bare codes.
 - **`price` is `sell per buy`, not `buy per sell`.** Inverting it is a top reason wallets show wrong amounts.
+- **`price`, `total_price`, `sell_amount`, `buy_amount`, and every fee amount are STRINGS with 7-decimal precision.** Do all rate math with a decimal library — never `parseFloat` — and compare/round as decimals, per the skill's amount-precision gotcha (#6).
 - **Pass the exact `delivery_method` name from `/info`**, case-sensitive. Anchors do not fuzzy-match `"ach"` vs `"ACH"`.
 - **Re-quote on expiry silently** — never bounce "quote expired" to the user.
 - **`GET /quote/:id` survives expiration** — use it for audit / reconciliation; don't try to redeem it after `expires_at`.

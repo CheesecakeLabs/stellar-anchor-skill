@@ -23,7 +23,7 @@ GET https://{HOME_DOMAIN}/.well-known/stellar.toml
 Requirements you should *verify* on the response, not assume:
 
 - **Path** is exactly `/.well-known/stellar.toml` — not `/stellar.toml`, not a subdirectory.
-- **`Access-Control-Allow-Origin: *`** is required. A browser wallet without this gets a CORS opaque-response error and can't read the body.
+- **`Access-Control-Allow-Origin: *`** is required *of the anchor* — the server must send it. In a browser, you can't read or check this header from JS: a missing/incorrect CORS header surfaces as a thrown `fetch` (or an opaque response you can't read the body of), not as a readable header. Catch the `fetch` rejection and surface it as a likely anchor CORS misconfiguration rather than a TOML parse error.
 - **`Content-Type: text/plain`** is recommended by the spec but not enforced; tolerate `application/toml` and missing types.
 - **Size cap is 100 KB** per spec. If the file is larger, treat it as malformed.
 - **HTTPS** — SEP-1 doesn't literally mandate HTTPS for the TOML file itself, but every endpoint listed *inside* it must be `https://`, and every modern wallet refuses HTTP. Treat HTTPS as mandatory and reject anything that comes back without it.
@@ -261,15 +261,19 @@ async function discoverAndAuth(homeDomain: string, userKeypair: Keypair) {
   if (first.name !== `${homeDomain} auth`)
     throw new Error(`expected key "${homeDomain} auth", got "${first.name}"`);
 
+  let webAuthDomainOk = false;
   for (const op of rest) {
     if (op.type !== "manageData") throw new Error("non manage_data op");
     if (op.name === "web_auth_domain") {
       const expected = new URL(webAuth).host;
-      if (op.value?.toString() !== expected)
-        throw new Error(`web_auth_domain mismatch: ${op.value} vs ${expected}`);
+      if (op.value?.toString("utf8") !== expected)
+        throw new Error(`web_auth_domain mismatch: ${op.value?.toString("utf8")} vs ${expected}`);
+      webAuthDomainOk = true;
     }
     // client_domain op handled in the client_domain flow
   }
+  if (new URL(webAuth).host !== homeDomain && !webAuthDomainOk)
+    throw new Error("missing/invalid web_auth_domain op");
 
   tx.sign(userKeypair);
 
@@ -298,6 +302,6 @@ Skipped here for length but still required in production: the `client_domain` se
 - **Don't strip the memo from `sub`.** `G...:1234567` and `G...` are different users to the anchor.
 - **Use the TOML's `NETWORK_PASSPHRASE` for signing, not a hard-coded constant.** Cross-wiring testnet and mainnet passphrases is a top reason "the SDK rejects my signature but it looks right."
 - **Wrap every authenticated call with transparent re-auth.** JWT expiry is anchor-defined; long sessions will hit it.
-- **For browser wallets, validate `Access-Control-Allow-Origin: *` early.** The browser will give you an opaque-response error otherwise — easy to misread as a TOML parsing bug.
+- **The anchor must send `Access-Control-Allow-Origin: *`; you can't validate it from browser JS.** A missing/incorrect CORS header surfaces as a thrown `fetch` or an opaque response — not a readable header. Catch the `fetch` rejection and surface it as a likely anchor CORS misconfiguration, not a TOML parsing bug.
 
 Once you have a JWT in hand, hand off to [sep24-interactive.md](sep24-interactive.md) (hosted UI), [sep6-programmatic.md](sep6-programmatic.md) (API only), [sep12-kyc.md](sep12-kyc.md) (KYC), [sep38-quotes.md](sep38-quotes.md) (pricing), or [sep31-cross-border.md](sep31-cross-border.md) (remittance).

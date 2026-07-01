@@ -69,7 +69,7 @@ No existing community skill includes one. The testing reference file should inst
 
 ## Launch plan
 
-1. Build repo per structure above; description frontmatter must include trigger phrases: "fiat on-ramp", "off-ramp", "deposit/withdrawal", "cash-in/cash-out", "MoneyGram integration", "anchor", not just SEP numbers.
+1. Build repo per structure above; description frontmatter must include trigger phrases: "fiat on-ramp", "off-ramp", "deposit/withdrawal", "cash-in/cash-out", "Circle integration", "anchor", not just SEP numbers.
 2. Make installable: `npx skills add <org>/stellar-anchor-skill` + Claude Code plugin marketplace pattern.
 3. Self-test: fresh Claude Code session + this skill → build a SEP-24 deposit flow against testanchor from scratch; every stumble = missing gotcha.
 4. Submit: issue/PR to `stellar/stellar-dev-skill` proposing the community card; propose cross-links with the official `standards` skill in both directions; post in Stellar Developers Discord; list on skills.sh.
