@@ -196,8 +196,8 @@ Open an issue with the offending file path and the contradiction; PRs welcome di
 ## Related skills
 
 - [`stellar/standards`](https://github.com/stellar/stellar-dev-skill/blob/main/skills/standards/SKILL.md) — the official skill that routes to SEP specs (this skill picks up where that one leaves off).
-- [`stellar/soroban`](https://github.com/stellar/stellar-dev-skill/blob/main/skills/soroban/SKILL.md) — Soroban smart contracts.
-- [`stellar/dapp-frontend`](https://github.com/stellar/stellar-dev-skill/blob/main/skills/dapp/SKILL.md) — wallet/frontend integration patterns.
+- [`stellar/smart-contracts`](https://github.com/stellar/stellar-dev-skill/blob/main/skills/smart-contracts/SKILL.md — Soroban smart contracts.
+- [`stellar/dapp`](https://github.com/stellar/stellar-dev-skill/blob/main/skills/dapp/SKILL.md) — wallet/frontend integration patterns.
 
 ---
 
